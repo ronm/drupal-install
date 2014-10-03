@@ -1,0 +1,131 @@
+<?php
+/**
+ * Implements hook_permission.
+*/
+/*function ronzoni_permission() {
+	return array(
+		'' => array(
+			'title' => t(''),
+		)
+	);
+}*/
+
+/**
+ * Implements hook_init.
+*/
+function ronzoni_init() { drupal_add_js(['isFront' => drupal_is_front_page()], 'setting'); }
+
+/**
+ * Implements hook_admin.
+*/
+/*function ronzoni_admin() {
+	$form = array();
+
+	return system_settings_form($form);
+}*/
+
+/**
+ * Implements hook_theme.
+*/
+/*function ronzoni_theme($existing, $type, $theme, $path) {
+	$themes = array(
+		'' => array( 'template' => '', 'path' => drupal_get_path('module', '').'/layouts', ),
+	);
+
+	return $themes;
+}*/
+
+/**
+ * Implements hook_menu.
+*/
+/*function ronzoni_menu() {
+
+  	$items = array();
+
+  	$items['''] = array(
+		'title' => '',
+		'description' => '',
+		'page callback' => 'drupal_get_form',
+		'page arguments' => array(''),
+		'access arguments' => array(''),
+	);
+
+	return $items;
+}*/
+
+/**
+ * Implements hook_block_info.
+*/
+/*function ronzoni_block_info() {
+	$blocks = array();
+	$blocks[''] = array( 'info' => t(''), );
+
+	$blocks = array();
+	$blocks[''] = array( 'info' => t(''), );
+
+	return $blocks;
+}*/
+/**
+ * Implements hook_block_view.
+*/
+/*function ronzoni_block_view($delta = '') {
+	if ( $delta ) {
+		$block['subject'] = '';
+		$block['content'] = '';
+	}
+
+	return $block;
+}*/
+
+/**
+ * Implements hook_preprocess_html.
+**/
+//function ronzoni_preprocess_html(&$html) {}
+
+/**
+ * Implements hook_preprocess_page.
+**/
+//function ronzoni_preprocess_page(&$page) {}
+
+/**
+ * Implements hook_BASE_FORM_ID_form_alter.
+**/
+//function ronzoni_form_node_form_alter(&$form, &$form_state, $form_id) {}
+
+// private functions
+
+
+
+function _get_single_page_main_menu( $menu_name = 'main-menu', $format = FALSE ) {
+	$menu = menu_tree_all_data( $menu_name );
+	$main_menu = [];
+	foreach( $menu as $item ) {
+		$item = $item['link'];
+		$fragment = isset($item['options']['fragment']) ? $item['options']['fragment'] : '';
+		if ( $item['link_path'] == '<front>' ) {
+			if ( drupal_is_front_page() ) {
+				$item['link_path'] = '';
+			} else {
+				global $base_url;
+				$item['link_path'] = $base_url;
+			}
+		}
+
+		$main_menu[] = [
+			"menuanchor" => $fragment,
+			"path" => $item['link_path'] . ( $fragment ? "/#" . $fragment : '' ),
+			"title" => $item['title'],
+		];
+	}
+
+	if ( $format ) {
+		$menu = $main_menu;
+		$main_menu = '';
+		foreach( $menu as $item ) {
+			$main_menu .= '<li data-menuanchor="' . $item['menuanchor'] . '"><a href="' . $item['path'] . '">' . $item['title'] . '</a></li>';
+		}
+	}
+
+	return $main_menu;
+
+}

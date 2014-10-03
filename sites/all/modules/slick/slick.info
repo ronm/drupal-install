@@ -1,0 +1,17 @@
+name = Slick
+description = "Slick carousel for Drupal"
+core = 7.x
+package = Slick
+
+dependencies[] = libraries (>=2.x)
+dependencies[] = ctools
+dependencies[] = jquery_update
+
+files[] = templates/slick.theme.inc
+
+; Information added by Drupal.org packaging script on 2014-06-16
+version = "7.x-2.x-dev"
+core = "7.x"
+project = "slick"
+datestamp = "1402913330"
+

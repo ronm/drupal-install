@@ -1,0 +1,205 @@
+<?php
+/**
+* Valid permissions for this module
+* @return array An array of valid permissions for the meny module
+*/
+function meny_perm() {
+  return array('administer meny setting');
+}
+
+
+/**
+ * Implements hook_block_info().
+ */
+function meny_block_info() {
+	$blocks = array();
+	$menu_count = variable_get('meny_menucount', '1');
+    for ($i = 1; $i <= $menu_count; $i++) {
+		$menu = menu_load( variable_get('meny_menudisp_'. $i, 'main-menu') );
+		$menu_name = isset($menu) && isset($menu['title']) ? $menu['title'] : $i;
+        $blocks[$i]['info'] = 'Meny: ' . $menu_name;
+        $blocks[$i]['cache'] = DRUPAL_NO_CACHE;
+    }
+
+    return $blocks;
+}
+
+function meny_block_view($delta = '') {
+      $menu = variable_get('meny_menudisp_'. $delta,  'main-menu');
+      $nav = _build_nav($menu, false);
+      $topbar_title = variable_get('meny_collapsible_title_' . $delta, variable_get('site_name') );
+	  $collapsible = variable_get('meny_collapsible_' . $delta, ($delta == 1 ? 1 : 0));
+	  $content = ( $collapsible ? '<div class="top-bar" data-topbar>' : '' ) . 
+	  			 ( $collapsible ? '<span class="toggle-topbar menu-icon"><a href="#"><span>' . $topbar_title . '</span></a></span>' : '' ) . 
+	  			 '<nav id="' . $menu . '-' . $delta . '">' . $nav . '</nav>' . 
+	  			 ( $collapsible ? '</div>' : '' );
+
+	  $block['subject'] = '';	  					  
+      $block['content'] = $content;	  					  
+
+      return $block;
+} 
+
+function meny_block_configure($delta = '') {
+	$form['meny_menudisp_'. $delta] = array(
+    	'#type' => 'select',
+        '#options' => menu_get_menus(),
+        '#title' => t('Which menu should this apply to?'),
+        '#default_value' => variable_get('meny_menudisp_'. $delta, 'main-menu'),
+        '#required' => TRUE,
+    );  
+
+	$form['meny_collapsible_' . $delta] = array(
+		'#default_value' => variable_get('meny_collapsible_' . $delta, 0),
+		'#type' => 'checkbox', 
+		'#title' => t('Make Collapsible?'),
+		'#return_value' => 1, 
+	);
+	
+	$form['meny_collapsible_title_' . $delta] = array(
+		'#default_value' => variable_get('meny_collapsible_title_' . $delta, variable_get('site_name') ),
+		'#type' => 'textfield', 
+		'#title' => t('Collapsible Menu Title'),
+		'#size' => 20, 
+		'#maxlength' => 40, 
+	);	
+
+    return $form;
+}
+
+function meny_block_save($delta = '', $edit = array()) {
+	 variable_set('meny_menudisp_'. $delta, $edit['meny_menudisp_'. $delta]);
+	 variable_set('meny_collapsible_' . $delta, $edit['meny_collapsible_' . $delta]);
+	 variable_set('meny_collapsible_title_' . $delta, $edit['meny_collapsible_title_' . $delta]);
+}
+
+function meny_admin() {
+	$form = array();
+	
+	$form['meny_menucount'] = array(
+    	'#type' => 'select',
+		'#options' => array("0","1","2","3","4","5","6","7","8","9","10"),
+		'#title' => t('How many Simple Nav blocks do you want?'),
+		'#default_value' => variable_get('meny_menucount', '1'),
+		'#required' => TRUE,
+	);
+  
+	$form['meny_nolink_tag'] = array(
+	  	'#type' => 'textfield',
+	    '#title' => t('HTML tag for "nolink"'),
+	    '#default_value' => variable_get('meny_nolink_tag', '<h3>'),
+	);
+  
+	return system_settings_form($form);
+}
+
+
+function meny_menu() {
+	$items = array();
+	
+	$items['<nolink>'] = array(
+    	'page callback' => 'drupal_not_found',
+		'access callback' => TRUE,
+		'type' => MENU_CALLBACK,
+	);
+
+	$items['admin/structure/menu/meny'] = array(
+	    'title' => 'Meny',
+	    'description' => 'Description of your Meny settings page',
+	    'page callback' => 'drupal_get_form',
+	    'page arguments' => array('meny_admin'),
+	    'access arguments' => array('administer meny settings'),
+	    'type' => MENU_NORMAL_ITEM,
+	);
+
+	return $items;
+}
+
+
+
+
+
+/* private functions */
+function _build_nav($menu, $issecondary) {
+
+  global $language ;
+  $lang_name = $language->language;
+  $tree = is_string($menu) ? menu_tree_all_data($menu) : $menu;
+  $visibile_links = array_filter($tree, '_nav_is_not_hidden');
+
+  $active = implode("/", arg());
+
+  $meny = (!$issecondary ? '<ul class="meny links ' . $menu . '">' : '<ul class="secondary-meny">');
+  $i=0;
+
+  foreach ($visibile_links as $key=>$branch) {
+      $link = $branch['link']['link_path'];
+     
+      $node_id = (strrpos($link, "/") ? substr($link, strrpos($link, "/") + 1) : $link);
+	  $node_id = preg_replace(array('/^</', '/>$/') , '', $node_id);
+
+      $branch_title_orig = $branch['link']['title'];
+      $branch_title = $branch['link']['title'];
+      
+      $branch_id = $branch['link']['mlid'];
+      $alias = (strstr($link, 'http://') ? $link : '/'.drupal_lookup_path('alias', $link, $lang_name));
+      
+      if ($lang_name == 'es') {
+        $spanish_trans_node = translation_node_get_translations($node_id);
+        if ($spanish_trans_node && $spanish_trans_node["es"]) {
+          $span_node_id = $spanish_trans_node["es"]->nid;
+          $alias = '/'.$lang_name.'/'.drupal_lookup_path('alias', 'node/'.$span_node_id, 'es');
+          $branch_title = $spanish_trans_node["es"]->title;
+        }
+      }
+
+      if (!is_numeric($node_id)) { $alias = (strstr($link, 'http://') ? $link : '/'.$link); }
+      
+      if (isset($branch['link']['options']['fragment'])) { $alias .= '#'.$branch['link']['options']['fragment']; }
+
+      $branch_attr_title = (isset($branch['link']['options']['attributes']['title']) ?  $branch['link']['options']['attributes']['title']  : $branch_title_orig);
+      $branch_children = $branch['below'];
+      $has_children = (count($branch_children) > 0 && is_array($branch_children));
+
+      $branch_children_output = ((is_array($branch_children) && count($branch_children) > 0) ? _build_nav($branch_children, true) : '');
+
+      $tree_length =  count($visibile_links);
+      $nav_index = ($i == 0 ? ' first' : ($i + 1 == $tree_length ? ' last' : ''));
+
+      
+      if ($node_id == "front" && drupal_is_front_page()) {
+	      $active_link = ' active';
+	  } elseif ($active == $link) {
+		  $active_link = ' active';	  
+	  } else {
+		  $active_link = '';
+	  }
+
+      if ($link == '<front>') { $alias = '/'; }
+      if ($link == '<nolink>') { $alias = NULL; }
+      $no_link_tag = variable_get('meny_nolink_tag', '<h3>');
+      $no_link_close_tag = preg_replace("/<([a-z][a-z0-9]*)[^>]*?(\/?)>/i",'<$1$2>', $no_link_tag);
+      $no_link_close_tag = substr_replace($no_link_close_tag, '/', 1, 0);
+	  $no_link_tag = '<div class="menu-header">' . $no_link_tag;
+	  $no_link_close_tag .= '</div>';
+      $meny .= '<li class="menu-' . $branch_id . ($has_children ? ' menuparent' : '') . ' path-' . $node_id . $nav_index . $active_link . '">' . 
+      		   '	<div class="nav-wrap">' .
+      		   ( $alias ? '<a href="' . $alias . '" title="' . $branch_attr_title . '"' . (!$issecondary ? ' class="top-level"' : '') . '>' : $no_link_tag ) . 
+      		   				$branch_title . 
+      		   ( $alias ? '</a>' : $no_link_close_tag ) .
+      		   		(count($branch_children) > 0 ? $branch_children_output : '') .
+      		   '	</div>' . 
+      		   '</li>';
+    $i++;
+  }/* for each */
+
+  $meny .= '</ul>';
+
+  return $meny;
+}/* function _build_nav*/
+
+
+function _nav_is_not_hidden($x) {
+	//print_r($x['link']);
+    return (!isset($x['link']['hidden']) || abs($x['link']['hidden']) != 1);
+}

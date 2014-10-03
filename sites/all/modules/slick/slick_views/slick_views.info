@@ -1,0 +1,17 @@
+name = Slick Views
+description = "Adds a Views style plugin for Slick carousel"
+core = 7.x
+package = Slick
+
+dependencies[] = views
+dependencies[] = slick
+
+files[] = slick_views.views.inc
+files[] = slick_views_plugin_style_slick.inc
+
+; Information added by Drupal.org packaging script on 2014-06-16
+version = "7.x-2.x-dev"
+core = "7.x"
+project = "slick"
+datestamp = "1402913330"
+

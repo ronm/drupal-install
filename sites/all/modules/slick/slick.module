@@ -1,0 +1,463 @@
+<?php
+
+/**
+ * @file
+ * Slick carousel integration, the last carousel you'll ever need.
+ */
+
+define('SLICK_VERSION', '1.3.6');
+
+/**
+ * Implements hook_theme().
+ */
+function slick_theme($existing, $type, $theme, $path) {
+  $base = array(
+    'file' => 'slick.theme.inc',
+    'path' => $path . '/templates',
+  );
+
+  return array(
+    // Slick container.
+    'slick' => $base + array(
+      'render element' => 'element',
+      'template' => 'slick',
+    ),
+    // Individual slick item.
+    'slick_item' => $base + array(
+      'render element' => 'element',
+      'template' => 'slick-item',
+    ),
+    // Slick media file field.
+    'slick_media' => $base + array(
+      'render element' => 'element',
+      'template' => 'slick-media',
+    ),
+    // Slick lazy load image. Uses variables to get easy with core theme_image.
+    'slick_image_lazy' => $base + array(
+      'variables' => array(
+        'style_name' => NULL,
+        'path' => NULL,
+        'height' => NULL,
+        'width' => NULL,
+        'alt' => '',
+        'title' => NULL,
+        'lazy' => FALSE,
+        'attributes' => array(),
+      ),
+    ),
+    // Slick lazy load image formatter.
+    'slick_image_formatter_lazy' => $base + array(
+      'variables' => array(
+        'item' => NULL,
+        'path' => NULL,
+        'image_style' => NULL,
+        'delta' => 0,
+        'count' => NULL,
+        'options' => array(),
+      ),
+    ),
+    // @todo drop by the main theme_slick.
+    'slick_carousel' => $base + array(
+      'variables' => array('items' => NULL, 'options' => NULL),
+      'template' => 'slick-carousel',
+    ),
+  );
+}
+
+/**
+ * Implements hook_permission().
+ */
+function slick_permission() {
+  return array(
+    'administer slick' => array(
+      'title' => t('Administer the Slick carousel module'),
+    ),
+  );
+}
+
+/**
+ * Implements hook_ctools_plugin_api().
+ */
+function slick_ctools_plugin_api($owner, $api) {
+  if ($owner == 'slick' && $api == 'slick_default_preset') {
+    return array('version' => 1);
+  }
+}
+
+/**
+ * Implements hook_ctools_plugin_directory().
+ */
+function slick_ctools_plugin_directory($module, $plugin) {
+  if ($plugin == 'export_ui') {
+    return 'plugins/' . $plugin;
+  }
+}
+
+/**
+ * Implements hook_hook_info().
+ */
+function slick_hook_info() {
+  $hooks['slick_skins_info'] = array(
+    'group' => 'slick',
+  );
+
+  $hooks['slick_skins_info_alter'] = array(
+    'group' => 'slick',
+  );
+
+  return $hooks;
+}
+
+/**
+ * Implements hook_library().
+ */
+function slick_library() {
+
+  $slick_library_path = libraries_get_path('slick');
+  $slick_module_path = drupal_get_path('module', 'slick');
+  $info = system_get_info('module', 'slick');
+
+  $common = array(
+    'website' => 'http://drupal.org/project/slick',
+    'version' => !empty($info['version']) ? $info['version'] : '7.x-2.x',
+  );
+
+  $libraries = array();
+
+  // Alternative to jqeasing since hardly updated and uses a non-minified one.
+  $libraries['slick.easing'] = array(
+    'title' => 'jQuery Easing',
+    'vendor url' => 'https://github.com/gdsmith/jquery.easing',
+    'version' => '1.3',
+    'js' => array(
+      libraries_get_path('easing') . '/jquery.easing.min.js' => array('group' => JS_LIBRARY, 'weight' => -6),
+    ),
+    'dependencies' => array(
+      array('system', 'jquery'),
+    ),
+  );
+
+  // @todo mousewheel, no module for drupal 7 by now.
+  $libraries['mousewheel'] = array(
+    'title' => 'jQuery Mousewheel',
+    'vendor url' => 'https://github.com/brandonaaron/jquery-mousewheel',
+    'version' => '3.1.11',
+    'js' => array(
+      libraries_get_path('mousewheel') . '/jquery.mousewheel.min.js' => array('group' => JS_LIBRARY, 'weight' => -5),
+    ),
+    'dependencies' => array(
+      array('system', 'jquery'),
+    ),
+  );
+
+  // Slick plugin libraries.
+  $libraries['slick'] = array(
+    'title' => 'Slick',
+    'website' => 'http://kenwheeler.github.io/slick/',
+    'version' => SLICK_VERSION,
+    'js' => array(
+      $slick_library_path . '/slick/slick.min.js' => array('group' => JS_LIBRARY, 'weight' => -4),
+    ),
+    'css' => array(
+      $slick_library_path . '/slick/slick.css' => array('weight' => -4),
+    ),
+    'dependencies' => array(
+      array('system', 'jquery'),
+    ),
+  );
+
+  // Slick colorbox libraries.
+  $libraries['drupal.slick.colorbox'] = $common + array(
+    'title' => 'Slick colorbox',
+    'js' => array(
+      $slick_module_path . '/js/slick.colorbox.js' => array('group' => JS_DEFAULT, 'weight' => 0),
+    ),
+    'css' => array(
+      $slick_module_path . '/css/components/slick.colorbox.css' => array('group' => CSS_DEFAULT, 'weight' => 0),
+    ),
+    'dependencies' => array(
+      array('system', 'jquery.once'),
+      array('slick', 'slick'),
+      array('slick', 'drupal.slick'),
+    ),
+  );
+
+  // Slick module libraries.
+  $libraries['drupal.slick'] = $common + array(
+    'title' => 'Slick module',
+    'js' => array(
+      $slick_module_path . '/js/slick.load.js' => array('group' => JS_DEFAULT, 'weight' => 1),
+    ),
+    'css' => array(
+      $slick_module_path . '/css/theme/slick.theme.css' => array('group' => CSS_DEFAULT, 'weight' => 0),
+    ),
+    'dependencies' => array(
+      array('system', 'jquery.once'),
+      array('slick', 'slick'),
+    ),
+  );
+
+  // Slick media libraries.
+  $libraries['drupal.slick.media'] = $common + array(
+    'title' => 'Slick media',
+    'js' => array(
+      $slick_module_path . '/js/slick.media.js' => array('group' => JS_DEFAULT, 'weight' => 2),
+    ),
+    'css' => array(
+      $slick_module_path . '/css/components/slick.media.css' => array('group' => CSS_DEFAULT, 'weight' => 0),
+    ),
+    'dependencies' => array(
+      array('system', 'jquery.once'),
+      array('slick', 'slick'),
+      array('slick', 'drupal.slick'),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Implements hook_libraries_info().
+ */
+function slick_libraries_info() {
+
+  $libraries['slick'] = array(
+    'name' => 'Slick',
+    'vendor url' => 'http://kenwheeler.github.io',
+    'download url' => 'https://github.com/kenwheeler/slick/',
+    'version' => SLICK_VERSION,
+    'version arguments' => array(
+      'file' => 'slick/slick.js',
+      // 1.x.x: Version 1.3.6
+      'pattern' => '/Version: (\d+\.\d+\.\d+)/',
+    ),
+    'files' => array(
+      'js' => array(
+        'slick/slick.min.js',
+      ),
+      'css' => array(
+        'slick/slick.css',
+      ),
+    ),
+    // @todo enable for libraries 3, see https://drupal.org/node/1855918
+    // 'integration files' => array(
+    // 'slick' => array(
+    // 'js' => array(
+    // 'js/slick.colorbox.js',
+    // 'js/slick.load.js',
+    // 'js/slick.media.js',
+    // ),
+    // 'css' => array(
+    // 'css/theme/slick.theme.css',
+    // 'css/components/slick.media.css',
+    // 'css/components/slick.colorbox.css',
+    // ),
+    // ),
+    // ),
+  );
+
+  // Alternative to jqeasing if using .make file.
+  $libraries['slick.easing'] = array(
+    'name' => 'jQuery Easing',
+    'vendor url' => 'https://github.com/gdsmith/jquery.easing',
+    'download url' => 'https://github.com/gdsmith/jquery.easing/archive/master.zip',
+    'version arguments' => array(
+      'file' => 'jquery.easing.js',
+      'pattern' => '/jQuery\s+Easing\s+v?([0-9\.]+)/',
+    ),
+    'files' => array(
+      'js' => array(
+        'jquery.easing.min.js',
+      ),
+    ),
+  );
+
+  // @todo mousewheel, no module for drupal 7 by now.
+  $libraries['mousewheel'] = array(
+    'name' => 'jQuery Mousewheel',
+    'vendor url' => 'https://github.com/brandonaaron/jquery-mousewheel',
+    'download url' => 'https://github.com/brandonaaron/jquery-mousewheel/archive/master.zip',
+    'version arguments' => array(
+      'file' => 'jquery.mousewheel.js',
+      // 3.x.xx: Version: 3.1.11
+      'pattern' => '/Version: (\d+\.\d+\.\d+)/',
+    ),
+    'files' => array(
+      'js' => array(
+        'jquery.mousewheel.min.js',
+      ),
+    ),
+  );
+
+  return $libraries;
+}
+
+/**
+ * Returns #attached array for needed JS and CSS for the given slick.
+ *
+ * @param array $attach
+ *   An array of conditions to load the relevant assets, or libraries.
+ *
+ * @return array
+ *   Array formatted for the '#attached' property.
+ */
+function slick_attach(array $attach) {
+  $module_path = drupal_get_path('module', 'slick');
+  $skins       = slick_skins();
+
+  $load = array();
+  $defaults = array(
+    'attach_default'    => FALSE,
+    'attach_easing'     => TRUE,
+    'attach_mousewheel' => FALSE,
+    'attach_slick'      => TRUE,
+    'attach_module'     => TRUE,
+    'attach_media'      => FALSE,
+    'attach_colorbox'   => FALSE,
+    'attach_skin'       => NULL,
+  );
+  $attach = array_merge($defaults, $attach);
+
+  if ($attach['attach_easing']) {
+    $easing = module_exists('jqeasing') ? array('jqeasing', 'easing') : array('slick', 'slick.easing');
+    $load['library'][] = $easing;
+  }
+
+  if ($attach['attach_mousewheel']) {
+    $load['library'][] = array('slick', 'mousewheel');
+  }
+
+  if ($attach['attach_slick']) {
+    $load['library'][] = array('slick', 'slick');
+  }
+
+  if ($attach['attach_colorbox']) {
+    $load['library'][] = array('slick', 'drupal.slick.colorbox');
+  }
+
+  if ($attach['attach_module']) {
+    $load['library'][] = array('slick', 'drupal.slick');
+  }
+
+  if ($attach['attach_media']) {
+    $load['library'][] = array('slick', 'drupal.slick.media');
+  }
+
+  // Skin assets.
+  if ($skin = $attach['attach_skin']) {
+    if (isset($skins[$skin]['css'])) {
+      foreach ($skins[$skin]['css'] as $c => $css) {
+        $load['css'][] = $css;
+      }
+    }
+    if (isset($skins[$skin]['js'])) {
+      foreach ($skins[$skin]['js'] as $j => $js) {
+        $load['js'][] = $js;
+      }
+    }
+  }
+
+  // Attach default JS settings only if required, no actual need with the HTML5
+  // data attributes approach.
+  if ($attach['attach_default']) {
+    $defaults = _slick_optionset_defaults(NULL, 'settings');
+    $load['js'][] = array(
+      'data' => array('slick' => $defaults),
+      'type' => 'setting',
+    );
+  }
+
+  return $load;
+}
+
+/**
+ * Loads the required JS and CSS for a slick instance, excluding JS settings.
+ *
+ * @param array $settings
+ *   An array of conditions to load the relevant assets, or libraries.
+ *
+ * Global base JS settings is added once for all instances at hook_init().
+ * Individual JS settings are stored as JSON object via inline HTML5 data
+ * attributes at individual slide instance when optionset is provided.
+ * This approach is much more efficient than regular head JS settings which
+ * stuffs horrible bunch of JS settings for slide instances into the <head>.
+ *
+ * slick_add() will be ignored if element #attached is provided to theme_slick,
+ * useful for more fine-grained control over libraries to load using renderable
+ * array.
+ *
+ * Notes: This is not used since the sub modules implements #attached property
+ * instead. It is here to load library for custom works as needed.
+ *
+ * @see slick_attach()
+ *
+ * @todo refine by $settings.
+ */
+function slick_add(array $settings) {
+  static $already_added = FALSE;
+
+  if ($already_added) {
+    // Don't add the JavaScript and CSS multiple times.
+    return;
+  }
+
+  // Add libraries.
+  // @todo add alt CDN:
+  // //cdnjs.cloudflare.com/ajax/libs/jquery-easing/1.3/jquery.easing.min.js
+  // https://github.com/gdsmith/jquery.easing
+  // libraries_load fails silently, if none found.
+  if (module_exists('jqeasing')) {
+    libraries_load('easing');
+  }
+  else {
+    libraries_load('slick.easing');
+  }
+
+  // @todo enable when mousewheel gets in:
+  // @see https://github.com/kenwheeler/slick/issues/122
+  // libraries_load('mousewheel');
+
+  libraries_load('slick');
+
+  // @todo drop for libraries_load() above alone when integration files fixed.
+  // @see https://drupal.org/node/1855918
+  drupal_add_library('slick', 'drupal.slick');
+
+  $already_added = TRUE;
+}
+
+/**
+ * Return the settings for a slick instance.
+ *
+ * @param array $settings
+ *   An array of the Slick library JS settings.
+ *
+ * We don't use regular JS settings injection into the <head>.
+ * Instead we add individual settings as JSON object ready to consume by jQuery
+ * via HTML5 data attributes, at slick container via #attached property to get
+ * along well with Drupal 8.
+ *
+ * This is only needed if you want to use regular JS <head> injection outside
+ * theme_slick(). In this case you have to load/ call it accordingly.
+ * However it is recommended to use #attached property passed to theme_slick().
+ */
+function _slick_add_settings($settings = NULL) {
+  static $already_added = FALSE;
+
+  // Don't add the JavaScript and CSS multiple times.
+  if ($already_added) {
+    return;
+  }
+
+  if (empty($settings)) {
+    $settings = _slick_optionset_defaults(NULL, 'settings');
+  }
+
+  drupal_add_js(array('slick' => $settings), 'setting');
+  $already_added = TRUE;
+}
+
+/**
+ * Off-load the following slick elements to another file.
+ */
+require_once dirname(__FILE__) . '/includes/slick.elements.inc';

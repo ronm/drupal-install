@@ -1,0 +1,419 @@
+<?php
+
+/**
+ * @file
+ * Install, update and uninstall functions for the standard installation profile.
+ */
+
+
+//look in _install_profile_install_configure_form_submit
+//remove help block from help region
+
+/**
+ * Implements hook_install().
+ *
+ * Perform actions to set up the site for this profile.
+ *
+ * @see system_install()
+ */
+function default_install() {
+
+	/*********************
+	******** DATE ********
+	*********************/
+	// making these 12 hr clock, not military time
+	variable_set('date_format_long', 'l, F j, Y - g:ia');
+	variable_set('date_format_medium', 'D, m/d/Y - g:ia');
+	variable_set('date_format_short', 'm/d/Y - g:ia');
+
+
+
+	/************************
+	******** FULL HTML ********
+	************************/
+
+	$full_html_format = [
+		'format' => 'full_html',
+		'name' => 'FULL HTML',
+		'weight' => 1,
+		'filters' => [
+			// URL filter.
+			'filter_url' => [
+				'weight' => 0,
+				'status' => 1,
+			],
+			// HTML corrector filter.
+			'filter_htmlcorrector' => [
+				'weight' => 10,
+				'status' => 1,
+			],
+		],
+	];
+
+	$full_html_format = (object) $full_html_format;
+	filter_format_save($full_html_format);
+
+	$full_html_settings = [
+    	'default' => 1,
+        'user_choose' => 0,
+        'show_toggle' => 1,
+        'theme' => 'advanced',
+        'language' => 'en',
+        'buttons' => [
+        	'default' => [
+            	'Bold' => 1,
+            	'Italic' => 1,
+            	'Underline' => 1,
+            	'Strike' => 1,
+            	'JustifyLeft' => 1,
+            	'JustifyCenter' => 1,
+            	'JustifyRight' => 1,
+            	'JustifyBlock' => 1,
+            	'BulletedList' => 1,
+            	'NumberedList' => 1,
+            	'Outdent' => 1,
+            	'Indent' => 1,
+            	'Undo' => 1,
+            	'Redo' => 1,
+            	'Link' => 1,
+            	'Unlink' => 1,
+            	'Anchor' => 1,
+            	'Image' => 1,
+            	'Superscript' => 1,
+            	'Subscript' => 1,
+            	'Blockquote' => 1,
+            	'Source' => 1,
+            	'HorizontalRule' => 1,
+            	'PasteText' => 1,
+            	'PasteFromWord' => 1,
+            	'ShowBlocks' => 1,
+            	'RemoveFormat' => 1,
+            	'Format' => 1,
+            	'Styles' => 1,
+            	'Table' => 1,
+            	'CreateDiv' => 1,
+            	'Iframe' => 1,
+            	'SpellChecker' => 1,
+            	'Scayt' => 1,
+            ],
+            'drupal' => [
+              'media' => 1,
+            ],
+        ],
+        'toolbar_loc' => 'top',
+        'toolbar_align' => 'left',
+        'path_loc' => 'bottom',
+        'resizing' => 1,
+        'verify_html' => 1,
+        'preformatted' => 0,
+        'convert_fonts_to_spans' => 1,
+        'remove_linebreaks' => 0,
+        'apply_source_formatting' => 1,
+        'paste_auto_cleanup_on_paste' => 1,
+        'block_formats' => 'p,address,pre,h3,h4,h5,h6,div',
+        'css_setting' => 'self',
+        'css_path' => '/sites/all/themes/ronzoni/css/app.css',
+        'css_classes' => "Image Left=img.imgleft" . "\r\n" . "Image Right=img.imgright" . "\r\n" . "ReadMore=a.views-more-link" . "\r\n" . "Tiny Button=a.tiny.button" . "\r\n" . "Small Button=a.small.button" . "\r\n" . "Button=a.button" . "\r\n" . "Expanded Button=a.expand",
+	];
+
+  $fields = ['format' => 'full_html', 'editor' => 'ckeditor', 'settings' => serialize($full_html_settings) ];
+  $query = db_insert('wysiwyg')->fields($fields)->execute();
+
+  db_update('filter')->fields(['status' => 1])->condition('format', 'full_html')->condition('name', 'media_filter')->execute();
+
+	// Insert default pre-defined node types into the database.
+	$type = node_type_set_defaults([
+		'type' => 'page',
+		'name' => st('Page'),
+		'base' => 'node_content',
+		'description' => st("Use <em>basic pages</em> for your static content, such as an 'About us' page."),
+		'custom' => 1,
+		'modified' => 1,
+		'locked' => 0,
+	]);
+
+	node_type_save($type);
+
+	node_add_body_field($type);
+
+	//*** set per content type options ***//
+
+	variable_set('node_options_page', ['status', 'revision'] );
+
+	variable_set('node_preview_page', 1);
+	variable_set('node_submitted_page', 0);
+	variable_set('weight_enabled_page', 0);
+
+	/* path alias */
+	variable_set('pathauto_node_page_pattern', '[node:title]');
+
+	// lets not hae this node published by default
+	//variable_set('node_options_page', array('status'));
+	variable_set('comment_page', COMMENT_NODE_HIDDEN);
+
+	// Don't display date and author information for "Basic page" nodes by default.
+	variable_set('node_submitted_page', FALSE);
+
+
+	/*******************************************
+	******** USERS, ROLES & PERMISSIONS ********
+	*******************************************/
+
+	// Enable default permissions for system roles.
+	$full_html_permission = filter_permission_name($full_html_format);
+	user_role_grant_permissions(DRUPAL_ANONYMOUS_RID, ['access content']);
+	user_role_grant_permissions(DRUPAL_AUTHENTICATED_RID, ['access content', $full_html_permission]);
+
+	// Create a the role for the main site administrators, with all available permissions assigned.
+	$administrator = new stdClass();
+	$administrator->name = 'Administrator';
+	$administrator->weight = 2;
+	user_role_save( $administrator );
+  user_role_grant_permissions( $administrator->rid, array_keys(module_invoke_all('permission')) );
+	// Set this as the administrator role.
+	variable_set('user_admin_role', $administrator->rid);
+
+	// Allow admin only account creation.
+	variable_set('user_register', USER_REGISTER_ADMINISTRATORS_ONLY);
+
+	// Assign user 1 the "administrator" role.
+	db_insert('users_roles')->fields(['uid' => 1, 'rid' => $administrator->rid])->execute();
+
+	// Create a the role for the editor, and give some permissions.
+	$editor = new stdClass();
+	$editor->name = 'Editor';
+	$editor->weight = 4;
+	user_role_save( $editor );
+	$editor_permissions = [
+		'access administration menu',
+		'access contextual links',
+		//'use text format wysiwyg',
+		'access content overview',
+		'access administration pages',
+		'view the administration theme',
+		'change own username',
+		'assign node weight',
+		'view own unpublished content',
+		'create page content',
+		'edit own page content',
+		'delete own page content',
+	];
+
+	user_role_grant_permissions( $editor->rid, $editor_permissions );
+
+	/***********************
+	******** THEMES ********
+	***********************/
+
+	/* disable bartik */
+	theme_disable( ['bartik'] );
+
+	// Enable the admin theme.
+	db_update('system')->fields(['status' => 1])->condition('type', 'theme')->condition('name', 'seven')->execute();
+	variable_set('admin_theme', 'seven');
+	variable_set('node_admin_theme', '1');
+
+	// endable default theme
+ 	theme_enable( ['ronzoni'] );
+	variable_set('theme_default', 'ronzoni');
+
+
+
+	/**************************
+	******** VARIABLES ********
+	**************************/
+
+	/* admin menu */
+	variable_set('admin_menu_components', [
+		'admin_menu.icon' => t('Icon menu'),
+		'admin_menu.menu' => t('Administration menu'),
+		'admin_menu.users' => t('User counts'),
+		'admin_menu.account' => t('Account links'),
+	]);
+
+	/* jquery update */
+	variable_set('jquery_update_jquery_version', '1.7');
+	variable_set('jquery_update_jquery_cdn', 'google');
+
+
+	/* turn off db logging */
+	//variable_set('error_level', 0);
+
+
+
+	/**************************
+	GENERAL PLACEHOLDER CONTENT
+	**************************/
+
+ 	// create 404 page
+	_install_profile_create_404();
+
+	// Hide author info on webform pages
+	variable_set('node_submitted_webform', 0);
+
+	// lets clear out the status "good" messages,
+	// we know what we installed
+	drupal_get_messages( 'status' , TRUE );
+
+
+	/****
+	 MENU
+	*****/
+
+	// Create a Home link in the main menu.
+	$item = [
+    	'link_title' => st('Home'),
+		'link_path' => '<front>',
+		'menu_name' => 'main-menu',
+	];
+
+	menu_link_save($item);
+
+	// Update the menu router information.
+  	menu_rebuild();
+
+}
+
+/**
+ * Implements hook_install_tasks_alter().
+ *
+*/
+function default_install_tasks_alter(&$tasks, $install_state) {
+  	global $install_state;
+
+  	// Set the installation theme.
+  	_install_profile_set_theme('seven');
+
+  	$tasks['install_select_locale']['display'] = FALSE;
+  	$tasks['install_select_locale']['run'] = INSTALL_TASK_SKIP;
+  	$install_state['parameters']['locale'] = 'en';
+}
+
+function _install_profile_create_node($data, $options) {
+
+	$node = (object) NULL;
+	$node->type = $data['type'] ? $data['type'] : 'page';
+	$node->title = $data['title'] ? $data['title'] : 'Title';
+	$node->uid = 0;
+	$node->created = strtotime("now") - rand(0 , 86400);
+	$node->changed = $node->created;
+	$node->status = 0;
+	$node->comment = 0;
+	$node->promote = 0;
+	$node->sticky = 0;
+	$node->language = 'und';
+
+	/* add body */
+	$body = isset( $data['body'] ) ? $data['body'] : '';
+	$data['body'] = [$node->language => [ _install_profile_create_html_field( $body ) ] ];
+
+	$node = (object) array_merge( (array) $node, (array) $node_data );
+
+	return $node;
+}
+
+
+
+function _install_profile_create_404() {
+
+	$body = st('<p>If you’re here, something went wrong, either the link that got you here is no longer, there was a misspelling in the address or perhaps the internet gods are upset. Regardless of how you got here, you can get back to any page you were seeking by clicking the navigation above. If you feel this may have been an error on our part, please contact us and let us know, we will set out to fix whatever has gone bad with cyberspace.</p>');
+
+	$node = _install_profile_create_node(
+		['body' => $body,
+		 'status' => 1,
+		 'title' => st('Oops, something went wrong'),
+		]
+	);
+
+	node_save($node);
+
+	variable_set('site_404', 'node/' . $node->nid);
+
+	return $node;
+}
+
+function _install_profile_create_html_field($value) {
+	return [ [ 'value' => $value, 'format' => 'full_html' ] ];
+}
+
+/**
+ * Force-set a theme at any point during the execution of the request.
+ *
+ * Drupal doesn't give us the option to set the theme during the installation
+ * process and forces enable the maintenance theme too early in the request
+ * for us to modify it in a clean way.
+ */
+function _install_profile_set_theme($target_theme) {
+  if ($GLOBALS['theme'] != $target_theme) {
+	unset($GLOBALS['theme']);
+
+	drupal_static_reset();
+	$GLOBALS['conf']['maintenance_theme'] = $target_theme;
+	_drupal_maintenance_theme();
+  }
+}
+
+function _install_profile_install_configure_form_modify($form) {
+
+	$form['admin_account']['account']['name']['#default_value'] = "lcadmin";
+  	$form['admin_account']['account']['mail']['#default_value'] = "ron@linkcreative.com";
+
+	$form['site_information']['site_mail']['#default_value'] = 'ron@linkcreative.com';
+
+	$form['server_settings']['site_default_country']['#default_value'] = 'US';
+	$form['server_settings']['date_default_timezone']['#default_value'] = 'America/Los_Angeles';
+
+	$form['update_notifications']['update_status_module']['#default_value'] = [1];
+
+	hide( $form['server_settings'] );
+	hide( $form['update_notifications'] );
+
+	$form['#submit'][] = '_install_profile_install_configure_form_submit';
+
+	return $form;
+}
+
+function _install_profile_install_configure_form_submit(&$form, &$form_state) {
+
+	/* init clean urls, we do this here as it
+	needs to be later in the install process */
+	variable_set('clean_url', 1);
+
+
+	// anon users can't use wysiwyg
+	// this seems to have to be done late in the install
+	//user_role_revoke_permissions(1, array( 'use text format wysiwyg' ));
+
+	/* doing this here to ensure that
+	webform and pathauto are installed */
+
+	if ( module_exists('webform') && module_exists('pathauto') ) {
+		variable_set('pathauto_node_webform_pattern', 'form/[node:title]');
+	}
+
+	/* set up google analytics */
+	if ( isset( $form_state['values']['google_analytics_id'] ) && ( strlen($form_state['values']['google_analytics_id']) > 2) ) {
+		variable_set('googleanalytics_account', $form_state['values']['google_analytics_id']);
+		variable_set('googleanalytics_cache', 0);
+		variable_set('googleanalytics_codesnippet_after', '');
+		variable_set('googleanalytics_codesnippet_before', '');
+		variable_set('googleanalytics_cross_domains', '');
+		variable_set('googleanalytics_custom', 0);
+		variable_set('googleanalytics_domain_mode', 0);
+		variable_set('googleanalytics_js_scope', 'footer');
+		variable_set('googleanalytics_pages', GOOGLEANALYTICS_PAGES);
+		variable_set('googleanalytics_privacy_donottrack', 1);
+		variable_set('googleanalytics_roles', []);
+		variable_set('googleanalytics_site_search', FALSE);
+		variable_set('googleanalytics_trackadsense', FALSE);
+		variable_set('googleanalytics_trackdoubleclick', FALSE);
+		variable_set('googleanalytics_tracker_anonymizeip', 0);
+		variable_set('googleanalytics_trackfiles', 1);
+		variable_set('googleanalytics_trackfiles_extensions', GOOGLEANALYTICS_TRACKFILES_EXTENSIONS);
+		variable_set('googleanalytics_trackmailto', 1);
+		variable_set('googleanalytics_trackmessages', []);
+		variable_set('googleanalytics_trackoutbound', 1);
+		variable_set('googleanalytics_visibility_pages', 0);
+		variable_set('googleanalytics_visibility_roles', 0);
+	}
+}

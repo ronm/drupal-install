@@ -1,0 +1,6 @@
+name = "Ronzoni"
+description = "Custom Helper Module - Never Too Much"
+core = 7.x
+package = Administration
+version = 7.x-1.0
+;configure = admin/config/administration/ronzoni

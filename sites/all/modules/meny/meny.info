@@ -1,0 +1,7 @@
+name = Meny
+description = A block module the reproduces navigation and child elements allowing for dropdowns.
+version = "7.x-1.0"
+core = "7.x"
+package = "Navigation"
+dependencies[] = pathauto
+configure = admin/structure/menu/meny
